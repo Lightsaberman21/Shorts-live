@@ -1,0 +1,92 @@
+name: 🎮 Stream Chaos Arena to YouTube
+
+on:
+  workflow_dispatch:        # start manually from GitHub UI
+    inputs:
+      duration:
+        description: 'Stream duration in minutes'
+        required: true
+        default: '60'
+
+jobs:
+  stream:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360   # max 6 hours
+
+    steps:
+
+    # ── 1. Install everything ──────────────────────────────────────────────
+    - name: Install dependencies
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y \
+          ffmpeg \
+          xvfb \
+          x11vnc \
+          chromium-browser \
+          pulseaudio \
+          xdotool \
+          wmctrl
+
+    # ── 2. Start virtual audio ─────────────────────────────────────────────
+    - name: Start PulseAudio
+      run: |
+        pulseaudio --start --log-target=syslog
+        pactl load-module module-virtual-sink sink_name=VirtualSink
+        pactl set-default-sink VirtualSink
+
+    # ── 3. Start virtual display (1080x1920 vertical for Shorts) ──────────
+    - name: Start virtual display
+      run: |
+        Xvfb :99 -screen 0 1080x1920x24 -ac &
+        echo "DISPLAY=:99" >> $GITHUB_ENV
+        sleep 2
+
+    # ── 4. Launch Chromium with the game ──────────────────────────────────
+    - name: Launch game in Chromium
+      env:
+        DISPLAY: :99
+      run: |
+        chromium-browser \
+          --no-sandbox \
+          --disable-dev-shm-usage \
+          --disable-gpu \
+          --window-size=1080,1920 \
+          --window-position=0,0 \
+          --kiosk \
+          --autoplay-policy=no-user-gesture-required \
+          --disable-infobars \
+          --hide-scrollbars \
+          --app="${{ secrets.GAME_URL }}" &
+        sleep 8
+
+    # ── 5. Stream via FFmpeg to YouTube ───────────────────────────────────
+    - name: Stream to YouTube
+      env:
+        DISPLAY: :99
+        YOUTUBE_STREAM_KEY: ${{ secrets.YOUTUBE_STREAM_KEY }}
+        DURATION_MINUTES: ${{ github.event.inputs.duration }}
+      run: |
+        DURATION_SECONDS=$((DURATION_MINUTES * 60))
+
+        ffmpeg \
+          -f x11grab \
+            -video_size 1080x1920 \
+            -framerate 30 \
+            -i :99.0+0,0 \
+          -f pulse \
+            -i VirtualSink.monitor \
+          -vcodec libx264 \
+            -preset veryfast \
+            -tune zerolatency \
+            -crf 23 \
+            -maxrate 4500k \
+            -bufsize 9000k \
+            -pix_fmt yuv420p \
+            -g 60 \
+          -acodec aac \
+            -b:a 128k \
+            -ar 44100 \
+          -t ${DURATION_SECONDS} \
+          -f flv \
+          "rtmp://a.rtmp.youtube.com/live2/${YOUTUBE_STREAM_KEY}"
