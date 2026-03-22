@@ -125,26 +125,10 @@ async function startPolling() {
 
 // ─── Demo mode (no YouTube API) ────────────────────────────────────────────
 // Sends random commands every few seconds if no API key is set
-function demoMode() {
-  const cmds    = [...VALID_COMMANDS];
-  const users   = ['Ahmed99','YT_Fan','EgyptKing','GamerX','ChatBot'];
-  let i = 0;
-  setInterval(() => {
-    const author  = users[Math.floor(Math.random() * users.length)];
-    const command = cmds[Math.floor(Math.random() * cmds.length)];
-    console.log(`[DEMO] ${author}: ${command}`);
-    broadcast({ author, command, message: command });
-    i++;
-  }, 5000 + Math.random() * 4000);
-}
 
 // ─── Start ────────────────────────────────────────────────────────────────
 server.listen(PORT, () => {
   console.log(`🎮 Chaos Arena server running on port ${PORT}`);
   if (YT_API_KEY && LIVE_VIDEO_ID) {
     startPolling();
-  } else {
-    console.log('[MODE] Demo mode — no YouTube API key set');
-    demoMode();
-  }
 });
