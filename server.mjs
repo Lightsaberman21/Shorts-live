@@ -18,7 +18,7 @@ const POLL_INTERVAL = 5000; // ms between chat polls
 
 // Commands the game recognizes
 const VALID_COMMANDS = new Set([
-  'explode','freeze','boss','shield','rain','heal','chaos'
+  'explode','freeze','boss','shield','rain','heal','chaos','left','right'
 ]);
 
 // ─── HTTP server (serves game.html too) ────────────────────────────────────
