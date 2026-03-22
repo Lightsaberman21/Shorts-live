@@ -74,8 +74,8 @@ jobs:
             -video_size 1080x1920 \
             -framerate 30 \
             -i :99.0+0,0 \
-          -f pulse \
-            -i VirtualSink.monitor \
+          -f lavfi \
+            -i anullsrc=r=44100:cl=stereo \
           -vcodec libx264 \
             -preset veryfast \
             -tune zerolatency \
