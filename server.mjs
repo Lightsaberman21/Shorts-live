@@ -131,4 +131,5 @@ server.listen(PORT, () => {
   console.log(`🎮 Chaos Arena server running on port ${PORT}`);
   if (YT_API_KEY && LIVE_VIDEO_ID) {
     startPolling();
+  }
 });
