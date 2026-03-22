@@ -501,7 +501,7 @@ const COMMANDS = {
 let ws;
 function connectWS() {
   // Change this to your deployed server URL
-  const WS_URL = window.WS_URL || 'ws://localhost:3000';
+  const WS_URL = window.WS_URL || 'wss://shorts-live.onrender.com';
   try {
     ws = new WebSocket(WS_URL);
     ws.onmessage = (e) => {
