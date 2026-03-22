@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Chaos Arena</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@400;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0f;
+    overflow: hidden;
+    font-family: 'Press Start 2P', monospace;
+    width: 1080px;
+    height: 1920px;
+    position: relative;
+  }
+
+  /* Animated grid background */
+  body::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,255,150,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,150,0.04) 1px, transparent 1px);
+    background-size: 60px 60px;
+    animation: gridMove 8s linear infinite;
+    pointer-events: none;
+  }
+
+  @keyframes gridMove {
+    0% { background-position: 0 0; }
+    100% { background-position: 0 60px; }
+  }
+
+  canvas {
+    display: block;
+    width: 1080px;
+    height: 1920px;
+  }
+
+  #hud {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    padding: 40px 60px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  #score-box {
+    background: rgba(0,255,150,0.08);
+    border: 2px solid rgba(0,255,150,0.4);
+    border-radius: 12px;
+    padding: 20px 30px;
+    backdrop-filter: blur(8px);
+  }
+
+  #score-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 18px;
+    color: rgba(0,255,150,0.6);
+    letter-spacing: 4px;
+    margin-bottom: 8px;
+  }
+
+  #score-val {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 52px;
+    font-weight: 900;
+    color: #00ff96;
+    text-shadow: 0 0 20px rgba(0,255,150,0.8);
+  }
+
+  #lives-box {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+  }
+
+  #lives-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 18px;
+    color: rgba(255,80,80,0.7);
+    letter-spacing: 4px;
+  }
+
+  #hearts {
+    font-size: 38px;
+    display: flex;
+    gap: 8px;
+  }
+
+  #wave-box {
+    position: absolute;
+    top: 200px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 22px;
+    color: rgba(255,200,0,0.85);
+    letter-spacing: 6px;
+    text-shadow: 0 0 12px rgba(255,200,0,0.5);
+  }
+
+  /* Chat feed overlay */
+  #chat-feed {
+    position: absolute;
+    bottom: 220px;
+    left: 40px;
+    width: 460px;
+    z-index: 10;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 10px;
+    max-height: 600px;
+    overflow: hidden;
+  }
+
+  .chat-msg {
+    background: rgba(0,0,0,0.7);
+    border-left: 4px solid #00ff96;
+    border-radius: 0 8px 8px 0;
+    padding: 12px 16px;
+    font-size: 18px;
+    color: #fff;
+    animation: slideIn 0.3s ease, fadeOut 0.5s ease 4.5s forwards;
+    backdrop-filter: blur(6px);
+  }
+
+  .chat-msg.event {
+    border-left-color: #ff5050;
+    background: rgba(255,50,50,0.15);
+  }
+
+  .chat-msg .author {
+    color: #00ff96;
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-30px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes fadeOut {
+    to { opacity: 0; height: 0; padding: 0; margin: 0; }
+  }
+
+  /* Event banner */
+  #event-banner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 80px;
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 0 0 40px currentColor;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 20;
+    text-align: center;
+    transition: none;
+    white-space: nowrap;
+  }
+
+  #event-banner.show {
+    animation: bannerPop 1.2s ease forwards;
+  }
+
+  @keyframes bannerPop {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+    20%  { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+    80%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+  }
+
+  /* Game Over */
+  #gameover {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 30;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 30px;
+  }
+
+  #gameover h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 90px;
+    font-weight: 900;
+    color: #ff3333;
+    text-shadow: 0 0 60px rgba(255,50,50,0.8);
+  }
+
+  #gameover p {
+    font-size: 26px;
+    color: rgba(255,255,255,0.7);
+    letter-spacing: 3px;
+  }
+
+  #restart-bar {
+    width: 400px;
+    height: 8px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 20px;
+  }
+
+  #restart-fill {
+    height: 100%;
+    background: #00ff96;
+    width: 0%;
+    transition: width 5s linear;
+  }
+
+  #gameover.show { display: flex; }
+  #restart-fill.go { width: 100%; }
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div id="score-box">
+    <div id="score-label">SCORE</div>
+    <div id="score-val">0</div>
+  </div>
+  <div id="lives-box">
+    <div id="lives-label">LIVES</div>
+    <div id="hearts">❤️❤️❤️</div>
+  </div>
+</div>
+
+<div id="wave-box">WAVE 1</div>
+<div id="chat-feed"></div>
+<div id="event-banner"></div>
+
+<div id="gameover">
+  <h1>GAME OVER</h1>
+  <p>FINAL SCORE: <span id="final-score">0</span></p>
+  <p style="font-size:18px;color:#888;">Restarting in 5s...</p>
+  <div id="restart-bar"><div id="restart-fill"></div></div>
+</div>
+
+<!-- Sounds via Web Audio API (no files needed) -->
+<script>
+// ─── Audio Engine ──────────────────────────────────────────────────────────
+const AC = new (window.AudioContext || window.webkitAudioContext)();
+
+function playTone(freq, type, dur, vol=0.3, detune=0) {
+  const o = AC.createOscillator();
+  const g = AC.createGain();
+  o.connect(g); g.connect(AC.destination);
+  o.type = type; o.frequency.value = freq;
+  o.detune.value = detune;
+  g.gain.setValueAtTime(vol, AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + dur);
+  o.start(); o.stop(AC.currentTime + dur);
+}
+
+function playExplode() {
+  const buf = AC.createBuffer(1, AC.sampleRate * 0.6, AC.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i/d.length, 2);
+  const src = AC.createBufferSource();
+  const g = AC.createGain(); const f = AC.createBiquadFilter();
+  src.buffer = buf; f.type = 'lowpass'; f.frequency.value = 300;
+  src.connect(f); f.connect(g); g.connect(AC.destination);
+  g.gain.setValueAtTime(1.5, AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + 0.6);
+  src.start();
+}
+
+function playFreeze() {
+  for (let i = 0; i < 5; i++) {
+    setTimeout(() => playTone(800 + i*200, 'sine', 0.15, 0.15), i * 60);
+  }
+}
+
+function playBoss() {
+  playTone(80, 'sawtooth', 0.8, 0.5);
+  setTimeout(() => playTone(60, 'sawtooth', 0.6, 0.4), 200);
+}
+
+function playHit() {
+  playTone(200, 'square', 0.1, 0.4);
+}
+
+function playScore() {
+  playTone(523, 'sine', 0.1, 0.2);
+  setTimeout(() => playTone(659, 'sine', 0.1, 0.2), 80);
+}
+
+function playShield() {
+  playTone(440, 'triangle', 0.3, 0.3);
+  setTimeout(() => playTone(550, 'triangle', 0.3, 0.3), 100);
+  setTimeout(() => playTone(660, 'triangle', 0.3, 0.3), 200);
+}
+
+// ─── Canvas Setup ──────────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+canvas.width = 1080;
+canvas.height = 1920;
+
+// ─── Game State ────────────────────────────────────────────────────────────
+let state = {};
+
+function resetGame() {
+  state = {
+    score: 0,
+    lives: 3,
+    wave: 1,
+    frozen: false,
+    freezeTimer: 0,
+    shielded: false,
+    shieldTimer: 0,
+    waveTimer: 0,
+    spawnRate: 90,
+    spawnTimer: 0,
+    particles: [],
+    enemies: [],
+    projectiles: [],
+    player: {
+      x: canvas.width / 2,
+      y: canvas.height - 200,
+      w: 80, h: 80,
+      speed: 14,
+      moving: false,
+      targetX: canvas.width / 2,
+    },
+    bossActive: false,
+    boss: null,
+    gameOver: false,
+    flashTimer: 0,
+    flashColor: null,
+  };
+  document.getElementById('gameover').classList.remove('show');
+  document.getElementById('restart-fill').classList.remove('go');
+  updateHUD();
+}
+resetGame();
+
+// ─── HUD Update ────────────────────────────────────────────────────────────
+function updateHUD() {
+  document.getElementById('score-val').textContent = state.score;
+  const h = ['❤️','❤️','❤️','❤️','❤️'].slice(0, state.lives).join('') || '💀';
+  document.getElementById('hearts').textContent = h;
+  document.getElementById('wave-box').textContent = `WAVE ${state.wave}`;
+}
+
+// ─── Event Banner ──────────────────────────────────────────────────────────
+function showBanner(text, color='#fff') {
+  const el = document.getElementById('event-banner');
+  el.textContent = text;
+  el.style.color = color;
+  el.style.textShadow = `0 0 40px ${color}`;
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+}
+
+// ─── Chat Feed ─────────────────────────────────────────────────────────────
+function addChatMsg(author, msg, isEvent=false) {
+  const feed = document.getElementById('chat-feed');
+  const div = document.createElement('div');
+  div.className = 'chat-msg' + (isEvent ? ' event' : '');
+  div.innerHTML = `<div class="author">${author}</div>${msg}`;
+  feed.prepend(div);
+  while (feed.children.length > 8) feed.removeChild(feed.lastChild);
+}
+
+// ─── Particles ─────────────────────────────────────────────────────────────
+function spawnParticles(x, y, count, color, speed=8, life=40) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const spd = speed * (0.4 + Math.random() * 0.6);
+    state.particles.push({
+      x, y,
+      vx: Math.cos(angle) * spd,
+      vy: Math.sin(angle) * spd,
+      life, maxLife: life,
+      color, size: 4 + Math.random() * 8,
+    });
+  }
+}
+
+function spawnExplosion(x, y) {
+  spawnParticles(x, y, 60, '#ff6600', 14, 50);
+  spawnParticles(x, y, 40, '#ffaa00', 10, 40);
+  spawnParticles(x, y, 20, '#ffffff', 6, 30);
+  state.flashTimer = 8;
+  state.flashColor = 'rgba(255,100,0,0.3)';
+  playExplode();
+  showBanner('💥 EXPLODE!', '#ff6600');
+}
+
+// ─── Enemies ───────────────────────────────────────────────────────────────
+const ENEMY_TYPES = [
+  { emoji:'🪨', speed: 6, size: 60, hp: 1, score: 10, color:'#aaa' },
+  { emoji:'🔥', speed: 9, size: 50, hp: 1, score: 15, color:'#ff4400' },
+  { emoji:'⚡', speed: 13, size: 45, hp: 1, score: 20, color:'#ffee00' },
+  { emoji:'💀', speed: 5, size: 70, hp: 2, score: 30, color:'#cc00ff' },
+];
+
+function spawnEnemy() {
+  const type = ENEMY_TYPES[Math.floor(Math.random() * Math.min(2 + state.wave, ENEMY_TYPES.length))];
+  const x = 60 + Math.random() * (canvas.width - 120);
+  state.enemies.push({
+    x, y: -60,
+    ...type,
+    maxHp: type.hp,
+    angle: 0,
+  });
+}
+
+function spawnBoss() {
+  if (state.bossActive) return;
+  state.bossActive = true;
+  state.boss = {
+    x: canvas.width / 2, y: 180,
+    w: 180, h: 180,
+    speed: 4,
+    hp: 20 + state.wave * 5,
+    maxHp: 20 + state.wave * 5,
+    angle: 0,
+    shootTimer: 0,
+    dir: 1,
+  };
+  playBoss();
+  showBanner('👾 BOSS!', '#ff00ff');
+}
+
+// ─── Chat Commands ──────────────────────────────────────────────────────────
+const COMMANDS = {
+  explode: (author) => {
+    // Explode all enemies on screen
+    const count = state.enemies.length;
+    state.enemies.forEach(e => spawnParticles(e.x, e.y, 20, '#ff6600', 10, 40));
+    state.enemies = [];
+    state.score += count * 5;
+    playExplode();
+    updateHUD();
+    showBanner('💥 EXPLODE!', '#ff6600');
+    addChatMsg(author, '💥 explode — all enemies cleared!', true);
+  },
+  freeze: (author) => {
+    state.frozen = true;
+    state.freezeTimer = 300; // 5 seconds
+    playFreeze();
+    state.flashTimer = 6;
+    state.flashColor = 'rgba(100,200,255,0.25)';
+    showBanner('❄️ FREEZE!', '#00ccff');
+    addChatMsg(author, '❄️ freeze — enemies frozen for 5s!', true);
+  },
+  boss: (author) => {
+    spawnBoss();
+    addChatMsg(author, '👾 boss — BOSS spawned!', true);
+  },
+  shield: (author) => {
+    state.shielded = true;
+    state.shieldTimer = 600; // 10 seconds
+    playShield();
+    showBanner('🛡️ SHIELD!', '#00ff96');
+    addChatMsg(author, '🛡️ shield — player shielded for 10s!', true);
+  },
+  rain: (author) => {
+    for (let i = 0; i < 10; i++) setTimeout(spawnEnemy, i * 120);
+    showBanner('🌧️ METEOR RAIN!', '#ff8800');
+    addChatMsg(author, '🌧️ rain — meteor shower incoming!', true);
+  },
+  heal: (author) => {
+    if (state.lives < 5) { state.lives++; updateHUD(); }
+    showBanner('💚 HEAL!', '#00ff96');
+    addChatMsg(author, '💚 heal — player healed!', true);
+  },
+  chaos: (author) => {
+    for (let i = 0; i < 20; i++) setTimeout(spawnEnemy, i * 50);
+    spawnBoss();
+    showBanner('🌀 CHAOS MODE!', '#ff00ff');
+    addChatMsg(author, '🌀 CHAOS MODE ACTIVATED', true);
+  },
+};
+
+// ─── WebSocket from server ─────────────────────────────────────────────────
+let ws;
+function connectWS() {
+  // Change this to your deployed server URL
+  const WS_URL = window.WS_URL || 'ws://localhost:3000';
+  try {
+    ws = new WebSocket(WS_URL);
+    ws.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      // data = { author: "username", command: "explode" }
+      const cmd = data.command?.toLowerCase().trim();
+      if (COMMANDS[cmd]) {
+        COMMANDS[cmd](data.author);
+      } else if (data.author) {
+        addChatMsg(data.author, data.message || data.command);
+      }
+    };
+    ws.onclose = () => setTimeout(connectWS, 3000);
+    ws.onerror = () => ws.close();
+  } catch(e) {}
+}
+connectWS();
+
+// Demo: simulate commands for testing (comment out in production)
+const DEMO_COMMANDS = ['explode','freeze','shield','rain','boss','heal','chaos'];
+const DEMO_USERS = ['Ahmed99','xXgamerXx','EgyptFan','ChatKing','YT_User'];
+function demoEvent() {
+  if (state.gameOver) return;
+  const cmd = DEMO_COMMANDS[Math.floor(Math.random() * DEMO_COMMANDS.length)];
+  const author = DEMO_USERS[Math.floor(Math.random() * DEMO_USERS.length)];
+  if (COMMANDS[cmd]) COMMANDS[cmd](author);
+  setTimeout(demoEvent, 4000 + Math.random() * 6000);
+}
+// Uncomment below to test without YouTube chat:
+// setTimeout(demoEvent, 3000);
+
+// ─── Player Controls (mouse/touch for testing) ─────────────────────────────
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  state.player.targetX = (e.clientX - rect.left) * scaleX;
+});
+canvas.addEventListener('click', () => AC.resume());
+
+// ─── Collision ─────────────────────────────────────────────────────────────
+function rectsOverlap(ax,ay,aw,ah, bx,by,bw,bh) {
+  return ax < bx+bw && ax+aw > bx && ay < by+bh && ay+ah > by;
+}
+
+// ─── Game Update ───────────────────────────────────────────────────────────
+function update() {
+  if (state.gameOver) return;
+
+  // Player movement
+  const p = state.player;
+  const dx = state.player.targetX - p.x;
+  if (Math.abs(dx) > 2) p.x += Math.sign(dx) * Math.min(p.speed, Math.abs(dx));
+  p.x = Math.max(p.w/2, Math.min(canvas.width - p.w/2, p.x));
+
+  // Freeze
+  if (state.frozen) { state.freezeTimer--; if (state.freezeTimer <= 0) state.frozen = false; }
+  if (state.shielded) { state.shieldTimer--; if (state.shieldTimer <= 0) state.shielded = false; }
+
+  // Wave progression
+  state.waveTimer++;
+  if (state.waveTimer > 1800) {
+    state.wave++;
+    state.waveTimer = 0;
+    state.spawnRate = Math.max(30, state.spawnRate - 8);
+    showBanner(`WAVE ${state.wave}`, '#ffee00');
+    updateHUD();
+  }
+
+  // Spawn enemies
+  if (!state.frozen) {
+    state.spawnTimer++;
+    if (state.spawnTimer >= state.spawnRate) {
+      state.spawnTimer = 0;
+      spawnEnemy();
+      if (Math.random() < 0.08) spawnEnemy(); // double spawn chance
+    }
+  }
+
+  // Update enemies
+  state.enemies = state.enemies.filter(e => {
+    if (!state.frozen) {
+      e.y += e.speed * (1 + state.wave * 0.1);
+      e.angle += 0.05;
+    }
+
+    // Hit player
+    if (rectsOverlap(e.x - e.size/2, e.y - e.size/2, e.size, e.size,
+                     p.x - p.w/2, p.y - p.h/2, p.w, p.h)) {
+      if (!state.shielded) {
+        state.lives--;
+        playHit();
+        state.flashTimer = 10;
+        state.flashColor = 'rgba(255,0,0,0.4)';
+        updateHUD();
+        if (state.lives <= 0) triggerGameOver();
+      }
+      spawnParticles(e.x, e.y, 15, e.color, 8, 30);
+      return false;
+    }
+
+    // Off screen
+    if (e.y > canvas.height + 80) { return false; }
+    return true;
+  });
+
+  // Boss update
+  if (state.bossActive && state.boss) {
+    const b = state.boss;
+    if (!state.frozen) {
+      b.x += b.speed * b.dir;
+      b.angle += 0.02;
+      if (b.x > canvas.width - 120 || b.x < 120) { b.dir *= -1; }
+
+      // Boss shoots
+      b.shootTimer++;
+      if (b.shootTimer > 60) {
+        b.shootTimer = 0;
+        const angle = Math.atan2(p.y - b.y, p.x - b.x);
+        state.projectiles.push({ x: b.x, y: b.y + b.h/2,
+          vx: Math.cos(angle) * 8, vy: Math.sin(angle) * 8,
+          r: 15, color: '#ff00ff' });
+      }
+
+      // Boss hit player
+      if (rectsOverlap(b.x - b.w/2, b.y, b.w, b.h,
+                       p.x - p.w/2, p.y - p.h/2, p.w, p.h)) {
+        if (!state.shielded) {
+          state.lives--;
+          playHit();
+          updateHUD();
+          if (state.lives <= 0) triggerGameOver();
+        }
+      }
+    }
+
+    // Check if boss is clicked/tapped (simulate damage via comment)
+    // Boss dies from "explode" command
+    if (b.hp <= 0) {
+      spawnParticles(b.x, b.y, 100, '#ff00ff', 15, 60);
+      playExplode();
+      state.score += 200;
+      state.bossActive = false;
+      state.boss = null;
+      updateHUD();
+      showBanner('👾 BOSS DEAD!', '#00ff96');
+    }
+  }
+
+  // Projectiles
+  state.projectiles = state.projectiles.filter(proj => {
+    proj.x += proj.vx;
+    proj.y += proj.vy;
+    if (rectsOverlap(proj.x - proj.r, proj.y - proj.r, proj.r*2, proj.r*2,
+                     p.x - p.w/2, p.y - p.h/2, p.w, p.h)) {
+      if (!state.shielded) {
+        state.lives--;
+        playHit();
+        updateHUD();
+        if (state.lives <= 0) triggerGameOver();
+      }
+      spawnParticles(proj.x, proj.y, 10, proj.color, 6, 20);
+      return false;
+    }
+    return proj.y < canvas.height + 50 && proj.x > -50 && proj.x < canvas.width + 50;
+  });
+
+  // Auto-score survival
+  if (Math.random() < 0.02) { state.score += 1; updateHUD(); }
+
+  // Particles
+  state.particles = state.particles.filter(p => {
+    p.x += p.vx; p.y += p.vy;
+    p.vx *= 0.94; p.vy *= 0.94;
+    p.life--;
+    return p.life > 0;
+  });
+
+  if (state.flashTimer > 0) state.flashTimer--;
+}
+
+// ─── Draw ──────────────────────────────────────────────────────────────────
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Background
+  ctx.fillStyle = '#0a0a0f';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Flash overlay
+  if (state.flashTimer > 0) {
+    ctx.fillStyle = state.flashColor;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  // Particles
+  state.particles.forEach(p => {
+    ctx.globalAlpha = p.life / p.maxLife;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * (p.life/p.maxLife), 0, Math.PI*2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+
+  // Enemies
+  state.enemies.forEach(e => {
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    ctx.rotate(e.angle);
+    ctx.font = `${e.size}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    if (state.frozen) {
+      ctx.shadowColor = '#00ccff';
+      ctx.shadowBlur = 20;
+      ctx.globalAlpha = 0.7;
+    }
+    ctx.fillText(e.emoji, 0, 0);
+    ctx.restore();
+    if (state.frozen) ctx.globalAlpha = 1;
+  });
+
+  // Boss
+  if (state.bossActive && state.boss) {
+    const b = state.boss;
+    ctx.save();
+    ctx.translate(b.x, b.y + b.h/2);
+    ctx.rotate(Math.sin(b.angle) * 0.1);
+    ctx.font = `${b.w}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = '#ff00ff';
+    ctx.shadowBlur = 40;
+    ctx.fillText('👾', 0, 0);
+    ctx.restore();
+
+    // Boss HP bar
+    const bw = 400;
+    const bh = 18;
+    const bx = (canvas.width - bw) / 2;
+    const by = b.y + b.h + 20;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.roundRect(bx, by, bw, bh, 9);
+    ctx.fill();
+    ctx.fillStyle = '#ff00ff';
+    ctx.shadowColor = '#ff00ff';
+    ctx.shadowBlur = 10;
+    ctx.roundRect(bx, by, bw * (b.hp/b.maxHp), bh, 9);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = '#fff';
+    ctx.font = '16px "Press Start 2P"';
+    ctx.textAlign = 'center';
+    ctx.fillText('BOSS', canvas.width/2, by + 40);
+  }
+
+  // Projectiles
+  state.projectiles.forEach(proj => {
+    ctx.beginPath();
+    ctx.arc(proj.x, proj.y, proj.r, 0, Math.PI*2);
+    ctx.fillStyle = proj.color;
+    ctx.shadowColor = proj.color;
+    ctx.shadowBlur = 20;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  });
+
+  // Player
+  const p = state.player;
+  ctx.save();
+  ctx.translate(p.x, p.y);
+
+  // Shield glow
+  if (state.shielded) {
+    const t = Date.now() / 300;
+    const r = p.w * 0.8 + Math.sin(t) * 8;
+    const g2 = ctx.createRadialGradient(0, 0, r*0.5, 0, 0, r);
+    g2.addColorStop(0, 'rgba(0,255,150,0.3)');
+    g2.addColorStop(1, 'rgba(0,255,150,0)');
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI*2);
+    ctx.fillStyle = g2;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(0,255,150,0.8)';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
+
+  ctx.font = '70px serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = '#00ff96';
+  ctx.shadowBlur = 20;
+  ctx.fillText('🚀', 0, 0);
+  ctx.restore();
+
+  // Frozen overlay
+  if (state.frozen) {
+    ctx.fillStyle = 'rgba(100,200,255,0.08)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'rgba(100,200,255,0.5)';
+    ctx.font = '22px "Press Start 2P"';
+    ctx.textAlign = 'center';
+    ctx.fillText('❄️ FROZEN', canvas.width/2, 300);
+  }
+}
+
+// ─── Game Over ─────────────────────────────────────────────────────────────
+function triggerGameOver() {
+  state.gameOver = true;
+  state.lives = 0;
+  document.getElementById('final-score').textContent = state.score;
+  document.getElementById('gameover').classList.add('show');
+  const fill = document.getElementById('restart-fill');
+  setTimeout(() => fill.classList.add('go'), 100);
+  setTimeout(() => { resetGame(); }, 5000);
+}
+
+// ─── Loop ─────────────────────────────────────────────────────────────────
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
