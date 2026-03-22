@@ -495,6 +495,14 @@ const COMMANDS = {
     showBanner('🌀 CHAOS MODE!', '#ff00ff');
     addChatMsg(author, '🌀 CHAOS MODE ACTIVATED', true);
   },
+  left: (author) => {
+    state.player.targetX = Math.max(60, state.player.x - 200);
+    addChatMsg(author, '⬅️ left');
+  },
+  right: (author) => {
+    state.player.targetX = Math.min(canvas.width - 60, state.player.x + 200);
+    addChatMsg(author, '➡️ right');
+  },
 };
 
 // ─── WebSocket from server ─────────────────────────────────────────────────
@@ -531,14 +539,8 @@ function demoEvent() {
   setTimeout(demoEvent, 4000 + Math.random() * 6000);
 }
 // Uncomment below to test without YouTube chat:
-// setTimeout(demoEvent, 3000);
-
 // ─── Player Controls (mouse/touch for testing) ─────────────────────────────
-canvas.addEventListener('mousemove', e => {
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = canvas.width / rect.width;
-  state.player.targetX = (e.clientX - rect.left) * scaleX;
-});
+
 canvas.addEventListener('click', () => AC.resume());
 
 // ─── Collision ─────────────────────────────────────────────────────────────
